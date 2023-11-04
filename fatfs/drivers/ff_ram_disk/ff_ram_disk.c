@@ -1,6 +1,6 @@
+#include <string.h>
 #include "ffconf.h"
-#include "fsl_common.h"
-#include "fsl_ram_disk.h"
+#include "ff_ram_disk.h"
 
 /*******************************************************************************
  * Globals
@@ -15,7 +15,7 @@ static uint8_t disk_space[FF_RAMDISK_DISK_SIZE];
  */
 DSTATUS ram_disk_status(BYTE pdrv)
 {
-    if (pdrv != RAMDISK)
+    if (pdrv != DEV_RAM_DISK)
     {
         return STA_NOINIT;
     }
@@ -27,7 +27,7 @@ DSTATUS ram_disk_status(BYTE pdrv)
  */
 DSTATUS ram_disk_initialize(BYTE pdrv)
 {
-    if (pdrv != RAMDISK)
+    if (pdrv != DEV_RAM_DISK)
     {
         return STA_NOINIT;
     }
@@ -39,7 +39,7 @@ DSTATUS ram_disk_initialize(BYTE pdrv)
  */
 DRESULT ram_disk_read(BYTE pdrv, BYTE* buff, LBA_t sector, UINT count)
 {
-    if (pdrv != RAMDISK)
+    if (pdrv != DEV_RAM_DISK)
     {
         return RES_PARERR;
     }
@@ -52,7 +52,7 @@ DRESULT ram_disk_read(BYTE pdrv, BYTE* buff, LBA_t sector, UINT count)
  */
 DRESULT ram_disk_write(BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count)
 {
-    if (pdrv != RAMDISK)
+    if (pdrv != DEV_RAM_DISK)
     {
         return RES_PARERR;
     }
@@ -65,7 +65,7 @@ DRESULT ram_disk_write(BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count)
  */
 DRESULT ram_disk_ioctl(BYTE pdrv, BYTE cmd, void* buff)
 {
-    if (pdrv != RAMDISK)
+    if (pdrv != DEV_RAM_DISK)
     {
         return RES_PARERR;
     }
