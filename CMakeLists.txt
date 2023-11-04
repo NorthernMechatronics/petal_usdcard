@@ -85,6 +85,7 @@ target_include_directories(
     PRIVATE
     ${HAL_INCLUDES}
     ${RTOS_INCLUDES}
+    ${FATFS_INCLUDES}
     ${PROJECT_SOURCE_DIR}/bsp
     ${PROJECT_SOURCE_DIR}/bsp/${BSP_TARGET_DIR}
     ${PROJECT_SOURCE_DIR}

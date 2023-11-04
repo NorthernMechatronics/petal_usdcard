@@ -6,7 +6,14 @@ set (FATFS_INCLUDES
     ${FATFS_DIR}/source
     ${FATFS_DIR}/drivers
     ${FATFS_DIR}/drivers/ff_ram_disk
+    ${FATFS_DIR}/drivers/ff_sdspi_disk
     CACHE PATH "FATFS includes"
+)
+
+target_compile_definitions(
+    fatfs PRIVATE
+    RAM_DISK_ENABLE
+    SDSPI_DISK_ENABLE
 )
 
 target_include_directories(
@@ -22,4 +29,5 @@ target_sources(
     ${FATFS_DIR}/source/ffsystem.c
     ${FATFS_DIR}/source/ffunicode.c
     ${FATFS_DIR}/drivers/ff_ram_disk/ff_ram_disk.c
+    ${FATFS_DIR}/drivers/ff_sdspi_disk/ff_sdspi_disk.c
 )

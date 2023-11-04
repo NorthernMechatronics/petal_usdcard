@@ -9,6 +9,8 @@
 
 #include "ff.h"			/* Obtains integer types */
 #include "diskio.h"		/* Declarations of disk functions */
+#include "ff_ram_disk.h"
+#include "ff_sdspi_disk.h"
 
 /*-----------------------------------------------------------------------*/
 /* Get Drive Status                                                      */
@@ -181,17 +183,17 @@ DRESULT disk_ioctl (
 	switch (pdrv)
 	{
 #ifdef RAM_DISK_ENABLE
-	case RAMDISK:
+	case DEV_RAM_DISK:
 		res = ram_disk_ioctl(pdrv, cmd, buff);
 		return res;
 #endif
 #ifdef SDSPI_DISK_ENABLE
-	case SDSPIDISK:
+	case DEV_SDSPI_DISK:
 		res = sdspi_disk_ioctl(pdrv, cmd, buff);
 		return res;
 #endif
 #ifdef NAND_DISK_ENABLE
-	case NANDDISK:
+	case DEV_NAND_DISK:
 		res = nand_disk_ioctl(pdrv, cmd, buff);
 		return res;
 #endif
