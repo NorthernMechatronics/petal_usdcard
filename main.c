@@ -41,15 +41,6 @@
 #include <FreeRTOS.h>
 #include <task.h>
 
-#ifdef RAT_LORAWAN_ENABLE
-#include "lorawan.h"
-#include "lorawan_task.h"
-#endif
-
-#ifdef RAT_BLE_ENABLE
-#include "ble_task.h"
-#endif
-
 #include "application_task.h"
 #include "console_task.h"
 
@@ -167,16 +158,8 @@ void system_setup(void)
 
 void system_start(void)
 {
-#ifdef RAT_LORAWAN_ENABLE
-    lorawan_task_create(2);
-#endif
-
-#ifdef RAT_BLE_ENABLE
-    ble_task_create(2);
-#endif
-
     console_task_create(2, CONSOLE_OUTPUT_UART);
-    application_task_create(1);
+    application_task_create(2);
 
     //
     // Start the scheduler.
