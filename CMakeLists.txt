@@ -53,6 +53,7 @@ set_target_properties(
 )
 
 add_subdirectory(bsp)
+add_subdirectory(fatfs)
 
 target_link_libraries(
     ${APPLICATION}
@@ -64,6 +65,7 @@ target_link_libraries(
         rtos
         bsp
         hal
+        fatfs
         -lm
         -lc
         -lgcc
@@ -114,4 +116,4 @@ add_custom_command(
     COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE_NAME:${APPLICATION}> $<TARGET_FILE_BASE_NAME:${APPLICATION}>.bin
 )
 
-add_dependencies(${APPLICATION} hal bsp rtos)
+add_dependencies(${APPLICATION} hal bsp rtos fatfs)
