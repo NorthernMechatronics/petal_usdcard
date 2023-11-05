@@ -7,6 +7,7 @@ set (FATFS_INCLUDES
     ${FATFS_DIR}/drivers
     ${FATFS_DIR}/drivers/ff_ram_disk
     ${FATFS_DIR}/drivers/ff_sdspi_disk
+    ${FATFS_DIR}/drivers/ff_sdspi_disk/sdcard_spi_driver
     CACHE PATH "FATFS includes"
 )
 
@@ -31,6 +32,5 @@ target_sources(
     ${FATFS_DIR}/source/ffunicode.c
     ${FATFS_DIR}/drivers/ff_ram_disk/ff_ram_disk.c
     ${FATFS_DIR}/drivers/ff_sdspi_disk/ff_sdspi_disk.c
-    ${FATFS_DIR}/drivers/ff_sdspi_disk/sdcard_spi_driver/spi_sdcard_crc7.c
-    ${FATFS_DIR}/drivers/ff_sdspi_disk/sdcard_spi_driver/spi_sdcard_driver.c
+    ${FATFS_DIR}/drivers/ff_sdspi_disk/sdcard_spi_driver/fsl_sdspi.c
 )
