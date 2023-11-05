@@ -13,7 +13,7 @@
 #endif
      
 #ifndef FF_RAMDISK_DISK_SIZE
-#define FF_RAMDISK_DISK_SIZE 128 * FF_MIN_SS /* minmal disk size calculated as 128 * FF_MIN_SS (ff.c ln 4112) , 128*512=65536 */
+#define FF_RAMDISK_DISK_SIZE 256 * FF_MIN_SS /* minmal disk size calculated as 256 * FF_MIN_SS (ff.c ln 4112) , 256*512=131072 */
 #endif
 
 #if defined(__cplusplus)

@@ -39,7 +39,11 @@ void ff_memfree (
 /* Definitions of Mutex                                                   */
 /*------------------------------------------------------------------------*/
 
-#define OS_TYPE	0	/* 0:Win32, 1:uITRON4.0, 2:uC/OS-II, 3:FreeRTOS, 4:CMSIS-RTOS */
+#ifndef FF_FS_OS
+#error "fatfs:  Undefined OS type"
+#else
+#define OS_TYPE	FF_FS_OS	/* 0:Win32, 1:uITRON4.0, 2:uC/OS-II, 3:FreeRTOS, 4:CMSIS-RTOS */
+#endif
 
 
 #if   OS_TYPE == 0	/* Win32 */
@@ -64,6 +68,8 @@ static SemaphoreHandle_t Mutex[FF_VOLUMES + 1];	/* Table of mutex handle */
 #include "cmsis_os.h"
 static osMutexId Mutex[FF_VOLUMES + 1];	/* Table of mutex ID */
 
+#else
+#error "fatfs:  invalid OS type specified"
 #endif
 
 
