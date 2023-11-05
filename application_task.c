@@ -37,29 +37,31 @@
 
 #include "am_bsp.h"
 
-#ifdef RAT_LORAWAN_ENABLE
-#include "lorawan.h"
-#endif
-
-#ifdef RAT_BLE_ENABLE
-#include "ble.h"
-#endif
+#include "ff.h"
+#include "diskio.h"
 
 #include "application_task.h"
 #include "application_task_cli.h"
+#include "fatfs_cli.h"
 
-#define APPLICATION_DEFAULT_LORAWAN_CLASS   LORAWAN_CLASS_A
+//const TCHAR g_drive[3U] = { DEV_SDSPI_DISK + '0', ':', '/'};
+const TCHAR g_drive[3U] = { DEV_RAM_DISK + '0', ':', '/'};
+FATFS g_fileSystem;
+uint8_t g_fsWork[FF_MAX_SS];
 
 static TaskHandle_t application_task_handle;
 
 static void application_setup_task()
 {
+    am_hal_gpio_pinconfig(19, g_AM_HAL_GPIO_OUTPUT);
+    am_hal_gpio_state_write(19, AM_HAL_GPIO_OUTPUT_SET);
+
     am_hal_gpio_pinconfig(AM_BSP_GPIO_LED0, g_AM_HAL_GPIO_OUTPUT);
     am_hal_gpio_state_write(AM_BSP_GPIO_LED0, AM_HAL_GPIO_OUTPUT_CLEAR);
 
     am_hal_gpio_pinconfig(AM_BSP_GPIO_LED1, g_AM_HAL_GPIO_OUTPUT);
     am_hal_gpio_state_write(AM_BSP_GPIO_LED1, AM_HAL_GPIO_OUTPUT_CLEAR);
-#if BSP_NM180100EVB
+
     am_hal_gpio_pinconfig(AM_BSP_GPIO_LED2, g_AM_HAL_GPIO_OUTPUT);
     am_hal_gpio_state_write(AM_BSP_GPIO_LED2, AM_HAL_GPIO_OUTPUT_CLEAR);
 
@@ -68,116 +70,46 @@ static void application_setup_task()
 
     am_hal_gpio_pinconfig(AM_BSP_GPIO_LED4, g_AM_HAL_GPIO_OUTPUT);
     am_hal_gpio_state_write(AM_BSP_GPIO_LED4, AM_HAL_GPIO_OUTPUT_CLEAR);
-#endif
 }
 
-#ifdef RAT_LORAWAN_ENABLE
-
-static void application_on_lorawan_sleep()
+static void filesystem_setup(void)
 {
-    am_hal_gpio_state_write(AM_BSP_GPIO_LED1, AM_HAL_GPIO_OUTPUT_CLEAR);
-}
+    MKFS_PARM g_formatOptions = { FM_FAT, 1, 0, 0, 0 };
 
-static void application_on_lorawan_wake()
-{
-    am_hal_gpio_state_write(AM_BSP_GPIO_LED1, AM_HAL_GPIO_OUTPUT_SET);
-}
+    FRESULT fr;
+    FIL g_file;
+    UINT bw;
 
-static void application_on_join_request(LmHandlerJoinParams_t *params)
-{
-    if (params->Status == LORAMAC_HANDLER_ERROR)
+    fr = f_mount(&g_fileSystem, g_drive, 1);
+    if (fr != FR_OK)
     {
-        lorawan_join();
+        f_mkfs(g_drive, &g_formatOptions, g_fsWork, FF_MAX_SS);
+
+        f_mkdir("sub1");
+        fr = f_open(&g_file, "file1.txt", FA_WRITE | FA_CREATE_ALWAYS); /* Create a file */
+        if (fr == FR_OK)
+        {
+            f_write(&g_file, "It works!\r\n", 11, &bw);
+            fr = f_close(&g_file);
+        }
+        fr = f_open(&g_file, "sub1/file2.txt", FA_WRITE | FA_CREATE_ALWAYS); /* Create a file */
+        f_write(&g_file, "It works2!\r\n", 12, &bw);
+        fr = f_close(&g_file);
     }
     else
     {
-        lorawan_class_set(APPLICATION_DEFAULT_LORAWAN_CLASS);
-        lorawan_request_time_sync();
+        am_util_stdio_printf("Mounted\r\n");
     }
 }
-
-static void application_on_receive(LmHandlerAppData_t *appData, LmHandlerRxParams_t *params)
-{
-    // appData is NULL for beacon messages
-    if (appData)
-    {
-        if (appData->Port > 0)
-        {
-            am_util_stdio_printf("\n\rReceived Data\n\r");
-            am_util_stdio_printf("COUNTER   : %-4d\n\r", params->DownlinkCounter);
-            am_util_stdio_printf("PORT      : %-4d\n\r", appData->Port);
-            am_util_stdio_printf("SLOT      : %-4d\n\r", params->RxSlot);
-            am_util_stdio_printf("DATA RATE : %-4d\n\r", params->Datarate);
-            am_util_stdio_printf("RSSI      : %-4d\n\r", params->Rssi);
-            am_util_stdio_printf("SNR       : %-4d\n\r", params->Snr);
-            am_util_stdio_printf("SIZE      : %-4d\n\r", appData->BufferSize);
-            am_util_stdio_printf("PAYLOAD   :\n\r");
-            for (int i = 0; i < appData->BufferSize; i++)
-            {
-                am_util_stdio_printf("%02x ", appData->Buffer[i]);
-            }
-            am_util_stdio_printf("\n\r");
-        }
-    }
-}
-
-static void application_setup_lorawan()
-{
-    lorawan_tracing_set(1);
-
-    lorawan_network_config(
-        LORAWAN_REGION_US915,
-        LORAWAN_DATARATE_0,
-        true,
-        true);
-
-    lorawan_activation_config(LORAWAN_ACTIVATION_OTAA, NULL);
-
-    lorawan_key_set_by_str(LORAWAN_KEY_JOIN_EUI, "b4c231a359bc2e3d");
-    lorawan_key_set_by_str(LORAWAN_KEY_APP, "01c3f004a2d6efffe32c4eda14bcd2b4");
-    lorawan_key_set_by_str(LORAWAN_KEY_NWK, "3f4ca100e2fc675ea123f4eb12c4a012");
-
-    lorawan_event_callback_register(LORAWAN_EVENT_RX_DATA, application_on_receive);
-    lorawan_event_callback_register(LORAWAN_EVENT_JOIN_REQUEST, application_on_join_request);
-
-    lorawan_event_callback_register(LORAWAN_EVENT_SLEEP, application_on_lorawan_sleep);
-    lorawan_event_callback_register(LORAWAN_EVENT_WAKE, application_on_lorawan_wake);
-
-    // start the LoRaWAN stack
-    lorawan_stack_state_set(LORAWAN_STACK_STARTED);
-
-    if (lorawan_get_join_state())
-    {
-        lorawan_class_set(APPLICATION_DEFAULT_LORAWAN_CLASS);
-    }
-}
-
-#endif
-
-#ifdef RAT_BLE_ENABLE
-
-static void application_setup_ble()
-{
-    ble_tracing_set(1);
-
-    ble_stack_state_set(BLE_STACK_STARTED);
-}
-
-#endif
 
 static void application_task(void *parameter)
 {
+    uint32_t card;
     application_task_cli_register();
+    fatfs_cli_register();
 
     application_setup_task();
-#ifdef RAT_LORAWAN_ENABLE
-    application_setup_lorawan();
-#endif
-    
-#ifdef RAT_BLE_ENABLE
-    application_setup_ble();
-#endif
-
+    filesystem_setup();
     while (1)
     {
         vTaskDelay(pdMS_TO_TICKS(500));
