@@ -11,6 +11,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <cmsis_compiler.h>
+
 #include "sdspi.h"
 
 /*******************************************************************************
@@ -1294,7 +1296,7 @@ status_t SDSPI_SwitchToHighSpeed(sdspi_card_t *card)
 
     if (SDSPI_SelectFunction(card, kSD_GroupTimingMode, kSD_FunctionSDR25HighSpeed) == kStatus_Success)
     {
-        card->host->setFrequency(SD_CLOCK_50MHZ > card->host->busBaudRate ? card->host->busBaudRate : SD_CLOCK_50MHZ);
+        card->host->setFrequency(SD_CLOCK_48MHZ > card->host->busBaudRate ? card->host->busBaudRate : SD_CLOCK_48MHZ);
 
         return kStatus_Success;
     }

@@ -21,8 +21,8 @@ option(BSP_NM180100EVB "" OFF)
 option(BSP_NM180310 "" OFF)
 option(BSP_NM180410 "" OFF)
 
-option(RAT_BLE_ENABLE "" ON)
-option(RAT_LORAWAN_ENABLE "" ON)
+option(RAT_BLE_ENABLE "" OFF)
+option(RAT_LORAWAN_ENABLE "" OFF)
 option(TF_ENABLE "" OFF)
 
 if (BSP_NM180100EVB)
