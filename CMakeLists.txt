@@ -103,6 +103,7 @@ target_sources(
     application_task_cli.c
     application_task.c
     console_task.c
+    fatfs_cli.c
 
     utils/RTT/RTT/SEGGER_RTT.c
     utils/RTT/RTT/SEGGER_RTT_printf.c

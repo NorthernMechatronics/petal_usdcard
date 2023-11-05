@@ -275,6 +275,7 @@ static void console_task(void *parameter)
                 ret = FreeRTOS_CLIProcessCommand(
                     cmd_buffer, out_str, configCOMMAND_INT_MAX_OUTPUT_SIZE);
                 am_util_stdio_printf(out_str);
+                taskYIELD();
             } while (ret != pdFALSE);
 
             am_util_stdio_printf(crlf);
