@@ -19,6 +19,7 @@ target_compile_definitions(
 
 target_include_directories(
     fatfs PRIVATE
+    ${BSP_INCLUDES}
     ${HAL_INCLUDES}
     ${RTOS_INCLUDES}
     ${FATFS_INCLUDES}

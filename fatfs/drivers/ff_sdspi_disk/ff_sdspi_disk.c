@@ -3,6 +3,8 @@
 #include <string.h>
 
 #include <am_mcu_apollo.h>
+#include <am_util.h>
+#include <am_bsp.h>
 
 #include "ff.h"
 #include "diskio.h"
@@ -138,6 +140,9 @@ DSTATUS sdspi_disk_initialize(uint8_t physicalDrive)
 
 void spi_init(void)
 {
+    am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_EN, g_AM_HAL_GPIO_OUTPUT);
+    am_hal_gpio_state_write(AM_BSP_GPIO_SD_EN, AM_HAL_GPIO_OUTPUT_SET);
+
     // uint32_t sourceClock;
 
     // dspi_master_config_t masterConfig;

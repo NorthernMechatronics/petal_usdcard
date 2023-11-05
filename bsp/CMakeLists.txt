@@ -7,6 +7,12 @@ set(BSP_PINS_SRC ${BSP_PINS_DIR}/bsp_pins.src)
 set(BSP_PINS_H ${BSP_PINS_DIR}/am_bsp_pins.h)
 set(BSP_PINS_C ${BSP_PINS_DIR}/am_bsp_pins.c)
 
+set(BSP_INCLUDES
+    ${CMAKE_CURRENT_LIST_DIR}
+    ${CMAKE_CURRENT_LIST_DIR}/${BSP_TARGET_DIR}
+    CACHE PATH "BSP includes"
+)
+
 add_custom_command(
     OUTPUT
         ${BSP_PINS_H}
@@ -28,8 +34,7 @@ target_include_directories(
     bsp
     PRIVATE
     ${HAL_INCLUDES}
-    ${CMAKE_CURRENT_LIST_DIR}
-    ${CMAKE_CURRENT_LIST_DIR}/${BSP_TARGET_DIR}
+    ${BSP_INCLUDES}
 )
 
 target_sources(

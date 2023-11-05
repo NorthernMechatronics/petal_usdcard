@@ -118,4 +118,5 @@ add_custom_command(
     COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE_NAME:${APPLICATION}> $<TARGET_FILE_BASE_NAME:${APPLICATION}>.bin
 )
 
+add_dependencies(fatfs bsp hal rtos)
 add_dependencies(${APPLICATION} hal bsp rtos fatfs)
