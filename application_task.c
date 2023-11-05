@@ -44,8 +44,8 @@
 #include "application_task_cli.h"
 #include "fatfs_cli.h"
 
-//const TCHAR g_drive[3U] = { DEV_SDSPI_DISK + '0', ':', '/'};
-const TCHAR g_drive[3U] = { DEV_RAM_DISK + '0', ':', '/'};
+const TCHAR g_drive[3U] = { DEV_SDSPI_DISK + '0', ':', '/'};
+//const TCHAR g_drive[3U] = { DEV_RAM_DISK + '0', ':', '/'};
 FATFS g_fileSystem;
 uint8_t g_fsWork[FF_MAX_SS];
 
@@ -81,24 +81,28 @@ static void filesystem_setup(void)
     UINT bw;
 
     fr = f_mount(&g_fileSystem, g_drive, 1);
-    if (fr != FR_OK)
+    if ((fr == FR_INVALID_DRIVE) || (fr == FR_NOT_READY))
     {
+        am_util_stdio_printf("\r\nDrive not found\r\n");
+    }
+    else if (fr == FR_NO_FILESYSTEM)
+    {
+        am_util_stdio_printf("\r\nNo filesystem, formatting...\r\n");
         f_mkfs(g_drive, &g_formatOptions, g_fsWork, FF_MAX_SS);
+        am_util_stdio_printf("Format completed.\r\n");
 
         f_mkdir("sub1");
         fr = f_open(&g_file, "file1.txt", FA_WRITE | FA_CREATE_ALWAYS); /* Create a file */
-        if (fr == FR_OK)
-        {
-            f_write(&g_file, "It works!\r\n", 11, &bw);
-            fr = f_close(&g_file);
-        }
+        f_write(&g_file, "It works!\r\n", 11, &bw);
+        fr = f_close(&g_file);
+
         fr = f_open(&g_file, "sub1/file2.txt", FA_WRITE | FA_CREATE_ALWAYS); /* Create a file */
         f_write(&g_file, "It works2!\r\n", 12, &bw);
         fr = f_close(&g_file);
     }
     else
     {
-        am_util_stdio_printf("Mounted\r\n");
+        am_util_stdio_printf("\r\nFilesystem Mounted\r\n");
     }
 }
 
