@@ -8,10 +8,7 @@
     "cmake.setBuildTypeOnMultiConfig": true,
     "cmake.configureOnOpen": false,
     "cmake.configureArgs": [
-        "-DCMAKE_TOOLCHAIN_FILE=${workspaceFolder}/nmsdk2/targets/nm180100/build.cmake",
-        "-DRAT_LORAWAN_ENABLE=ON",
-        "-DRAT_BLE_ENABLE=OFF",
-        "-DTF_ENABLE=OFF"
+        "-DCMAKE_TOOLCHAIN_FILE=${workspaceFolder}/nmsdk2/targets/nm180100/build.cmake"
     ],
     "cmake.generator": "Unix Makefiles"
 }
