@@ -11,7 +11,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "fsl_sdspi.h"
+#include "sdspi.h"
 
 /*******************************************************************************
  * Definitons

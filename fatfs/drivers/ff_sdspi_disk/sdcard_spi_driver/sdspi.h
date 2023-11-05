@@ -6,10 +6,11 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef _FSL_SDSPI_H_
-#define _FSL_SDSPI_H_
+#ifndef _SDSPI_H_
+#define _SDSPI_H_
 
-#include "fsl_sdmmc_spec.h"
+#include <stdbool.h>
+#include "sdmmc_spec.h"
 
 /******************************************************************************
  * Definitions

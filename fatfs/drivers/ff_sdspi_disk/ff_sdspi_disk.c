@@ -3,7 +3,7 @@
 #include <string.h>
 #include "ff.h"
 #include "diskio.h"
-
+#include "sdspi.h"
 
 /*******************************************************************************
  * Definitons

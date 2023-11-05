@@ -32,5 +32,5 @@ target_sources(
     ${FATFS_DIR}/source/ffunicode.c
     ${FATFS_DIR}/drivers/ff_ram_disk/ff_ram_disk.c
     ${FATFS_DIR}/drivers/ff_sdspi_disk/ff_sdspi_disk.c
-    ${FATFS_DIR}/drivers/ff_sdspi_disk/sdcard_spi_driver/fsl_sdspi.c
+    ${FATFS_DIR}/drivers/ff_sdspi_disk/sdcard_spi_driver/sdspi.c
 )

@@ -6,8 +6,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef _FSL_SDMMC_SPEC_H_
-#define _FSL_SDMMC_SPEC_H_
+#ifndef _SDMMC_SPEC_H_
+#define _SDMMC_SPEC_H_
 
 #include <stdint.h>
 
@@ -1212,4 +1212,4 @@ typedef struct _mmc_boot_config
 
 /* @} */
 
-#endif /* _FSL_SDMMC_SPEC_H_ */
+#endif
