@@ -8,25 +8,31 @@
 
 #include "ff.h"
 #include "diskio.h"
-#include "sdspi.h"
+#include "spi_sdcard_driver.h"
 
 /*******************************************************************************
  * Definitons
  ******************************************************************************/
+#define SDSPI_IOM_MODULE    (0)
 
 /*******************************************************************************
  * Prototypes
  ******************************************************************************/
 static void spi_init(void);
-static status_t spi_set_frequency(uint32_t frequency);
-static status_t spi_exchange(uint8_t *in, uint8_t *out, uint32_t size);
-static void sdspi_host_init(void);
+static void spi_set_speed(uint32_t frequency);
+static void spi_select(void);
+static void spi_release(void);
+static bool spi_is_present(void);
+static uint8_t spi_wr_rd_byte(uint8_t byte);
+static void spi_write(uint8_t const *buffer, uint32_t size);
+static void spi_read(uint8_t *buffer, uint32_t size);
 
 /*******************************************************************************
  * Variables
  ******************************************************************************/
-static sdspi_card_t g_card;
-static sdspi_host_t g_host;
+static void *sdspi_iom_handle = NULL;
+static spisd_interface_t spisd_interface;
+static spisd_info_t spisd_info;
 
 /*******************************************************************************
  * Code - SD disk interface
@@ -39,7 +45,7 @@ DRESULT sdspi_disk_write(uint8_t physicalDrive, const uint8_t *buffer, uint32_t 
         return RES_PARERR;
     }
 
-    if (kStatus_Success != SDSPI_WriteBlocks(&g_card, (uint8_t *)buffer, sector, count))
+    if (SPISD_RESULT_OK != spisd_write_multi_block(sector, buffer, count))
     {
         return RES_ERROR;
     }
@@ -53,10 +59,19 @@ DRESULT sdspi_disk_read(uint8_t physicalDrive, uint8_t *buffer, uint32_t sector,
         return RES_PARERR;
     }
 
-    if (kStatus_Success != SDSPI_ReadBlocks(&g_card, buffer, sector, count))
+    if (SPISD_RESULT_OK != spisd_read_multi_block_begin(sector))
     {
         return RES_ERROR;
     }
+    if (SPISD_RESULT_OK != spisd_read_multi_block_read(buffer, count))
+    {
+        return RES_ERROR;
+    }
+    if (SPISD_RESULT_OK != spisd_read_multi_block_end())
+    {
+        return RES_ERROR;
+    }
+
     return RES_OK;
 }
 
@@ -74,7 +89,7 @@ DRESULT sdspi_disk_ioctl(uint8_t physicalDrive, uint8_t command, void *buffer)
         case GET_SECTOR_COUNT:
             if (buffer)
             {
-                *(uint32_t *)buffer = g_card.blockCount;
+//                *(uint32_t *)buffer = g_card.blockCount;
             }
             else
             {
@@ -84,7 +99,7 @@ DRESULT sdspi_disk_ioctl(uint8_t physicalDrive, uint8_t command, void *buffer)
         case GET_SECTOR_SIZE:
             if (buffer)
             {
-                *(uint32_t *)buffer = g_card.blockSize;
+//                *(uint32_t *)buffer = g_card.blockSize;
             }
             else
             {
@@ -94,7 +109,7 @@ DRESULT sdspi_disk_ioctl(uint8_t physicalDrive, uint8_t command, void *buffer)
         case GET_BLOCK_SIZE:
             if (buffer)
             {
-                *(uint32_t *)buffer = g_card.csd.eraseSectorSize;
+//                *(uint32_t *)buffer = g_card.csd.eraseSectorSize;
             }
             else
             {
@@ -126,9 +141,18 @@ DSTATUS sdspi_disk_initialize(uint8_t physicalDrive)
     if (physicalDrive == DEV_SDSPI_DISK)
     {
         spi_init();
-        sdspi_host_init();
-        SDSPI_Init(&g_card);
-        g_card.host = &g_host;
+
+        spisd_interface.set_speed = spi_set_speed;
+        spisd_interface.select = spi_select;
+        spisd_interface.release = spi_release;
+        spisd_interface.is_present = spi_is_present;
+        spisd_interface.wr_rd_byte = spi_wr_rd_byte;
+        spisd_interface.write = spi_write;
+        spisd_interface.read = spi_read;
+
+        spisd_init(&spisd_interface);
+        spisd_get_card_info(&spisd_info);
+
         return RES_OK;
     }
     return STA_NOINIT;
@@ -140,71 +164,114 @@ DSTATUS sdspi_disk_initialize(uint8_t physicalDrive)
 
 void spi_init(void)
 {
+    am_hal_iom_config_t iom_spi_config = {
+        .eInterfaceMode = AM_HAL_IOM_SPI_MODE,
+        .ui32ClockFreq = AM_HAL_IOM_400KHZ,
+        .eSpiMode = AM_HAL_IOM_SPI_MODE_0,
+    };
+
     am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_EN, g_AM_HAL_GPIO_OUTPUT);
     am_hal_gpio_state_write(AM_BSP_GPIO_SD_EN, AM_HAL_GPIO_OUTPUT_SET);
 
-    // uint32_t sourceClock;
+    am_hal_iom_initialize(SDSPI_IOM_MODULE, &sdspi_iom_handle);
+    am_hal_iom_power_ctrl(sdspi_iom_handle, AM_HAL_SYSCTRL_WAKE, false);
+    am_hal_iom_configure(sdspi_iom_handle, &iom_spi_config);
+    am_hal_iom_enable(sdspi_iom_handle);
 
-    // dspi_master_config_t masterConfig;
+    am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_MISO, g_AM_BSP_GPIO_SD_MISO);
+    am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_MOSI, g_AM_BSP_GPIO_SD_MOSI);
+    am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_SCK, g_AM_BSP_GPIO_SD_SCK);
+//    am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_CS, g_AM_BSP_GPIO_SD_CS);
 
-    // /*Master config*/
-    // masterConfig.whichCtar = DSPI_MASTER_CTAR;
-    // masterConfig.ctarConfig.baudRate = DSPI_BUS_BAUDRATE;
-    // masterConfig.ctarConfig.bitsPerFrame = 8;
-    // masterConfig.ctarConfig.cpol = kDSPI_ClockPolarityActiveHigh;
-    // masterConfig.ctarConfig.cpha = kDSPI_ClockPhaseFirstEdge;
-    // masterConfig.ctarConfig.direction = kDSPI_MsbFirst;
-    // masterConfig.ctarConfig.pcsToSckDelayInNanoSec = 0;
-    // masterConfig.ctarConfig.lastSckToPcsDelayInNanoSec = 0;
-    // masterConfig.ctarConfig.betweenTransferDelayInNanoSec = 0;
-
-    // masterConfig.whichPcs = DSPI_MASTER_PCS_CONFIG;
-    // masterConfig.pcsActiveHighOrLow = kDSPI_PcsActiveLow;
-
-    // masterConfig.enableContinuousSCK = false;
-    // masterConfig.enableRxFifoOverWrite = false;
-    // masterConfig.enableModifiedTimingFormat = false;
-    // masterConfig.samplePoint = kDSPI_SckToSin0Clock;
-
-    // sourceClock = CLOCK_GetFreq(DSPI_MASTER_CLK_SRC);
-    // DSPI_MasterInit((SPI_Type *)BOARD_SDSPI_SPI_BASE, &masterConfig, sourceClock);
+    am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_CS, g_AM_HAL_GPIO_OUTPUT);
+    am_hal_gpio_state_write(AM_BSP_GPIO_SD_CS, AM_HAL_GPIO_OUTPUT_SET);
 }
 
-status_t spi_set_frequency(uint32_t frequency)
+static void spi_set_speed(uint32_t frequency)
 {
-    // uint32_t sourceClock;
+    am_hal_iom_config_t iom_spi_config = {
+        .eInterfaceMode = AM_HAL_IOM_SPI_MODE,
+        .ui32ClockFreq = frequency,
+        .eSpiMode = AM_HAL_IOM_SPI_MODE_0,
+    };
 
-    // sourceClock = CLOCK_GetFreq(DSPI_MASTER_CLK_SRC);
-    // /* If returns 0, indicates failed. */
-    // if (DSPI_MasterSetBaudRate((SPI_Type *)BOARD_SDSPI_SPI_BASE, DSPI_MASTER_CTAR, frequency, sourceClock))
-    // {
-    //     return kStatus_Success;
-    // }
-
-    return kStatus_Fail;
+    am_hal_iom_disable(sdspi_iom_handle);
+    am_hal_iom_configure(sdspi_iom_handle, &iom_spi_config);
+    am_hal_iom_enable(sdspi_iom_handle);
 }
 
-status_t spi_exchange(uint8_t *in, uint8_t *out, uint32_t size)
+static void spi_select(void)
 {
-    // dspi_transfer_t masterTransfer;
-
-    // masterTransfer.txData = in;
-    // masterTransfer.rxData = out;
-    // masterTransfer.dataSize = size;
-    // masterTransfer.configFlags = (kDSPI_MasterCtar0 | DSPI_MASTER_PCS_TRANSFER | kDSPI_MasterPcsContinuous);
-    // return DSPI_MasterTransferBlocking((SPI_Type *)BOARD_SDSPI_SPI_BASE, &masterTransfer);
-
-    return kStatus_Success;
+    am_hal_gpio_state_write(AM_BSP_GPIO_SD_CS, AM_HAL_GPIO_OUTPUT_CLEAR);
 }
 
-
-void sdspi_host_init(void)
+static void spi_release(void)
 {
-    /* Saves host state and callback. */
-    g_host.busBaudRate = SD_CLOCK_48MHZ;
-    g_host.setFrequency = spi_set_frequency;
-    g_host.exchange = spi_exchange;
+    am_hal_gpio_state_write(AM_BSP_GPIO_SD_CS, AM_HAL_GPIO_OUTPUT_SET);
+}
 
-    /* Saves card state. */
-    g_card.host = &g_host;
+static bool spi_is_present(void)
+{
+    return true;
+}
+
+static uint8_t spi_wr_rd_byte(uint8_t byte)
+{
+    am_hal_iom_transfer_t transfer;
+    uint32_t tx = byte;
+    uint32_t rx;
+
+    transfer.ui32InstrLen = 0;
+    transfer.ui32Instr    = 0;
+    transfer.eDirection   = AM_HAL_IOM_FULLDUPLEX;
+    transfer.ui32NumBytes = 1;
+    transfer.pui32TxBuffer = &tx;
+    transfer.pui32RxBuffer = &rx;
+    transfer.bContinue      = false;
+    transfer.ui8RepeatCount = 0;
+    transfer.ui32PauseCondition = 0;
+    transfer.ui32StatusSetClr   = 0;
+    transfer.uPeerInfo.ui32SpiChipSelect = 0;
+
+    am_hal_iom_spi_blocking_fullduplex(sdspi_iom_handle, &transfer);
+
+    return rx;
+}
+
+static void spi_write(uint8_t const *buffer, uint32_t size)
+{
+    am_hal_iom_transfer_t transfer;
+
+    transfer.ui32InstrLen = 0;
+    transfer.ui32Instr    = 0;
+    transfer.eDirection   = AM_HAL_IOM_TX;
+    transfer.ui32NumBytes = size;
+    transfer.pui32TxBuffer = (uint32_t *)buffer;
+    transfer.pui32RxBuffer = 0;
+    transfer.bContinue      = false;
+    transfer.ui8RepeatCount = 0;
+    transfer.ui32PauseCondition = 0;
+    transfer.ui32StatusSetClr   = 0;
+    transfer.uPeerInfo.ui32SpiChipSelect = 0;
+
+    am_hal_iom_blocking_transfer(sdspi_iom_handle, &transfer);
+}
+
+static void spi_read(uint8_t *buffer, uint32_t size)
+{
+    am_hal_iom_transfer_t transfer;
+
+    transfer.ui32InstrLen = 0;
+    transfer.ui32Instr    = 0;
+    transfer.eDirection   = AM_HAL_IOM_RX;
+    transfer.ui32NumBytes = size;
+    transfer.pui32TxBuffer = 0;
+    transfer.pui32RxBuffer = (uint32_t *)buffer;
+    transfer.bContinue      = false;
+    transfer.ui8RepeatCount = 0;
+    transfer.ui32PauseCondition = 0;
+    transfer.ui32StatusSetClr   = 0;
+    transfer.uPeerInfo.ui32SpiChipSelect = 0;
+
+    am_hal_iom_blocking_transfer(sdspi_iom_handle, &transfer);
 }
