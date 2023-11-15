@@ -723,15 +723,9 @@ pin
 pin
     name            = SD_CS
     desc            = I/O Master 0 chip select.
-    pinnum          = 31
-    func_sel        = AM_HAL_PIN_31_NCE31
-    drvstrength     = 12
-    intdir          = lo2hi
+    pinnum          = 8
+    func_sel        = AM_HAL_PIN_8_GPIO
     GPOutcfg        = pushpull
-    GPinput         = false
-    IOMnum          = 0
-    CEnum           = 0
-    CEpol           = low
 
 pin
     name            = SD_MISO

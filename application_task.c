@@ -48,13 +48,14 @@ const TCHAR g_drive[3U] = { DEV_SDSPI_DISK + '0', ':', '/'};
 //const TCHAR g_drive[3U] = { DEV_RAM_DISK + '0', ':', '/'};
 FATFS g_fileSystem;
 uint8_t g_fsWork[FF_MAX_SS];
+char buffer[128];
 
 static TaskHandle_t application_task_handle;
 
 static void application_setup_task()
 {
-    am_hal_gpio_pinconfig(19, g_AM_HAL_GPIO_OUTPUT);
-    am_hal_gpio_state_write(19, AM_HAL_GPIO_OUTPUT_SET);
+    am_hal_gpio_pinconfig(30, g_AM_HAL_GPIO_OUTPUT);
+    am_hal_gpio_state_write(30, AM_HAL_GPIO_OUTPUT_SET);
 
     am_hal_gpio_pinconfig(AM_BSP_GPIO_LED0, g_AM_HAL_GPIO_OUTPUT);
     am_hal_gpio_state_write(AM_BSP_GPIO_LED0, AM_HAL_GPIO_OUTPUT_CLEAR);
@@ -70,11 +71,26 @@ static void application_setup_task()
 
     am_hal_gpio_pinconfig(AM_BSP_GPIO_LED4, g_AM_HAL_GPIO_OUTPUT);
     am_hal_gpio_state_write(AM_BSP_GPIO_LED4, AM_HAL_GPIO_OUTPUT_CLEAR);
+
+    am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_EN, g_AM_HAL_GPIO_OUTPUT);
+    am_hal_gpio_state_write(AM_BSP_GPIO_SD_EN, AM_HAL_GPIO_OUTPUT_SET);
+
+    am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_CS, g_AM_HAL_GPIO_OUTPUT);
+    am_hal_gpio_state_write(AM_BSP_GPIO_SD_CS, AM_HAL_GPIO_OUTPUT_CLEAR);
+
+    am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_MOSI, g_AM_HAL_GPIO_OUTPUT);
+    am_hal_gpio_state_write(AM_BSP_GPIO_SD_MOSI, AM_HAL_GPIO_OUTPUT_CLEAR);
+
+    am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_MISO, g_AM_HAL_GPIO_OUTPUT);
+    am_hal_gpio_state_write(AM_BSP_GPIO_SD_MISO, AM_HAL_GPIO_OUTPUT_CLEAR);
+
+    am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_SCK, g_AM_HAL_GPIO_OUTPUT);
+    am_hal_gpio_state_write(AM_BSP_GPIO_SD_SCK, AM_HAL_GPIO_OUTPUT_CLEAR);
 }
 
 static void filesystem_setup(void)
 {
-    MKFS_PARM g_formatOptions = { FM_FAT, 1, 0, 0, 0 };
+    MKFS_PARM g_formatOptions = { FM_EXFAT, 1, 0, 0, 0 };
 
     FRESULT fr;
     FIL g_file;
@@ -90,20 +106,19 @@ static void filesystem_setup(void)
         am_util_stdio_printf("\r\nNo filesystem, formatting...\r\n");
         f_mkfs(g_drive, &g_formatOptions, g_fsWork, FF_MAX_SS);
         am_util_stdio_printf("Format completed.\r\n");
-
-        f_mkdir("sub1");
-        fr = f_open(&g_file, "file1.txt", FA_WRITE | FA_CREATE_ALWAYS); /* Create a file */
-        f_write(&g_file, "It works!\r\n", 11, &bw);
-        fr = f_close(&g_file);
-
-        fr = f_open(&g_file, "sub1/file2.txt", FA_WRITE | FA_CREATE_ALWAYS); /* Create a file */
-        f_write(&g_file, "It works2!\r\n", 12, &bw);
-        fr = f_close(&g_file);
     }
     else
     {
         am_util_stdio_printf("\r\nFilesystem Mounted\r\n");
     }
+}
+
+static void gpio_toggle()
+{
+    am_hal_gpio_state_write(AM_BSP_GPIO_SD_CS, AM_HAL_GPIO_OUTPUT_TOGGLE);
+    am_hal_gpio_state_write(AM_BSP_GPIO_SD_MOSI, AM_HAL_GPIO_OUTPUT_TOGGLE);
+    am_hal_gpio_state_write(AM_BSP_GPIO_SD_MISO, AM_HAL_GPIO_OUTPUT_TOGGLE);
+    am_hal_gpio_state_write(AM_BSP_GPIO_SD_SCK, AM_HAL_GPIO_OUTPUT_TOGGLE);
 }
 
 static void application_task(void *parameter)
