@@ -33,6 +33,7 @@
 #include <am_util.h>
 
 #include <FreeRTOS.h>
+#include <queue.h>
 #include <task.h>
 
 #include "am_bsp.h"
@@ -45,14 +46,78 @@
 #include "fatfs_cli.h"
 
 const TCHAR g_drive[3U] = { DEV_SDSPI_DISK + '0', ':', '/'};
-//const TCHAR g_drive[3U] = { DEV_RAM_DISK + '0', ':', '/'};
 FATFS g_fileSystem;
 uint8_t g_fsWork[FF_MAX_SS];
 char buffer[128];
 
 static TaskHandle_t application_task_handle;
+static QueueHandle_t application_queue_handle;
 
-static void application_setup_task()
+static void sdcard_det_handler(void)
+{
+    application_message_t message = { .message = 0, .payload_size = 0, .payload = NULL };
+
+    // disable interrupt to handle debounce in application context
+    AM_HAL_GPIO_MASKCREATE(sMasknDET);
+    AM_HAL_GPIO_MASKBIT(psMasknDET, AM_BSP_GPIO_SD_nDET);
+    am_hal_gpio_interrupt_disable(psMasknDET);
+
+    message.message = APP_MSG_CARD_STATUS_CHANGED;
+    application_task_send(&message);
+}
+
+static void filesystem_setup(void)
+{
+    uint32_t card_status;
+
+    am_hal_gpio_state_read(AM_BSP_GPIO_SD_nDET, AM_HAL_GPIO_INPUT_READ, &card_status);
+    if (card_status == 0)
+    {
+        // power on the SD Card
+        am_hal_gpio_state_write(AM_BSP_GPIO_SD_EN, AM_HAL_GPIO_OUTPUT_SET);
+        vTaskDelay(pdMS_TO_TICKS(10));
+
+        FRESULT fr;
+        fr = f_mount(&g_fileSystem, g_drive, 0);
+        if ((fr == FR_INVALID_DRIVE) || (fr == FR_NOT_READY))
+        {
+            am_util_stdio_printf("\r\nDrive not found\r\n");
+            return;
+        }
+        else if (fr == FR_NO_FILESYSTEM)
+        {
+            MKFS_PARM g_formatOptions = { FM_EXFAT, 1, 0, 0, 0 };
+
+            am_util_stdio_printf("\r\nNo filesystem, formatting...\r\n");
+            taskENTER_CRITICAL();
+            f_mkfs(g_drive, &g_formatOptions, g_fsWork, FF_MAX_SS);
+            taskEXIT_CRITICAL();
+            am_util_stdio_printf("Format completed.\r\n");
+        }
+        else if (fr == FR_DISK_ERR)
+        {
+            am_util_stdio_printf("\r\nDisk Error\r\n");
+            return;
+        }
+        else
+        {
+            am_util_stdio_printf("\r\nFilesystem Mounted\r\n");
+        }
+
+        f_chdrive(g_drive);
+    }
+    else
+    {
+        // power off the SD card
+        am_hal_gpio_state_write(AM_BSP_GPIO_SD_EN, AM_HAL_GPIO_OUTPUT_CLEAR);
+        am_util_stdio_printf("\r\nSD card removed\r\n");
+
+        // umount the file system
+        f_mount(&g_fileSystem, g_drive, 0);
+    }
+}
+
+static void application_setup()
 {
     am_hal_gpio_pinconfig(30, g_AM_HAL_GPIO_OUTPUT);
     am_hal_gpio_state_write(30, AM_HAL_GPIO_OUTPUT_SET);
@@ -73,70 +138,72 @@ static void application_setup_task()
     am_hal_gpio_state_write(AM_BSP_GPIO_LED4, AM_HAL_GPIO_OUTPUT_CLEAR);
 
     am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_EN, g_AM_HAL_GPIO_OUTPUT);
-    am_hal_gpio_state_write(AM_BSP_GPIO_SD_EN, AM_HAL_GPIO_OUTPUT_SET);
+    am_hal_gpio_state_write(AM_BSP_GPIO_SD_EN, AM_HAL_GPIO_OUTPUT_CLEAR);
 
-    am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_CS, g_AM_HAL_GPIO_OUTPUT);
-    am_hal_gpio_state_write(AM_BSP_GPIO_SD_CS, AM_HAL_GPIO_OUTPUT_CLEAR);
+    am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_nDET, g_AM_BSP_GPIO_SD_nDET);
+    AM_HAL_GPIO_MASKCREATE(sMasknDET);
+    AM_HAL_GPIO_MASKBIT(psMasknDET, AM_BSP_GPIO_SD_nDET);
+    am_hal_gpio_interrupt_register(AM_BSP_GPIO_SD_nDET, sdcard_det_handler);
+    am_hal_gpio_interrupt_clear(psMasknDET);
+    am_hal_gpio_interrupt_enable(psMasknDET);
 
-    am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_MOSI, g_AM_HAL_GPIO_OUTPUT);
-    am_hal_gpio_state_write(AM_BSP_GPIO_SD_MOSI, AM_HAL_GPIO_OUTPUT_CLEAR);
-
-    am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_MISO, g_AM_HAL_GPIO_OUTPUT);
-    am_hal_gpio_state_write(AM_BSP_GPIO_SD_MISO, AM_HAL_GPIO_OUTPUT_CLEAR);
-
-    am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_SCK, g_AM_HAL_GPIO_OUTPUT);
-    am_hal_gpio_state_write(AM_BSP_GPIO_SD_SCK, AM_HAL_GPIO_OUTPUT_CLEAR);
-}
-
-static void filesystem_setup(void)
-{
-    MKFS_PARM g_formatOptions = { FM_EXFAT, 1, 0, 0, 0 };
-
-    FRESULT fr;
-    FIL g_file;
-    UINT bw;
-
-    fr = f_mount(&g_fileSystem, g_drive, 1);
-    if ((fr == FR_INVALID_DRIVE) || (fr == FR_NOT_READY))
-    {
-        am_util_stdio_printf("\r\nDrive not found\r\n");
-    }
-    else if (fr == FR_NO_FILESYSTEM)
-    {
-        am_util_stdio_printf("\r\nNo filesystem, formatting...\r\n");
-        f_mkfs(g_drive, &g_formatOptions, g_fsWork, FF_MAX_SS);
-        am_util_stdio_printf("Format completed.\r\n");
-    }
-    else
-    {
-        am_util_stdio_printf("\r\nFilesystem Mounted\r\n");
-    }
-}
-
-static void gpio_toggle()
-{
-    am_hal_gpio_state_write(AM_BSP_GPIO_SD_CS, AM_HAL_GPIO_OUTPUT_TOGGLE);
-    am_hal_gpio_state_write(AM_BSP_GPIO_SD_MOSI, AM_HAL_GPIO_OUTPUT_TOGGLE);
-    am_hal_gpio_state_write(AM_BSP_GPIO_SD_MISO, AM_HAL_GPIO_OUTPUT_TOGGLE);
-    am_hal_gpio_state_write(AM_BSP_GPIO_SD_SCK, AM_HAL_GPIO_OUTPUT_TOGGLE);
+    NVIC_EnableIRQ(GPIO_IRQn);
+    am_hal_interrupt_master_enable();
 }
 
 static void application_task(void *parameter)
 {
-    uint32_t card;
+    application_message_t message;
+
     application_task_cli_register();
     fatfs_cli_register();
 
-    application_setup_task();
+    application_setup();
     filesystem_setup();
     while (1)
     {
-        vTaskDelay(pdMS_TO_TICKS(500));
-        am_hal_gpio_state_write(AM_BSP_GPIO_LED0, AM_HAL_GPIO_OUTPUT_TOGGLE);
+        if (xQueueReceive(application_queue_handle, &message, portMAX_DELAY) == pdTRUE)
+        {
+            switch (message.message)
+            {
+            case APP_MSG_CARD_STATUS_CHANGED:
+                {
+                    // debounce for 100ms
+                    vTaskDelay(pdMS_TO_TICKS(100));
+                    AM_HAL_GPIO_MASKCREATE(sMasknDET);
+                    AM_HAL_GPIO_MASKBIT(psMasknDET, AM_BSP_GPIO_SD_nDET);
+                    am_hal_gpio_interrupt_clear(psMasknDET);
+                    am_hal_gpio_interrupt_enable(psMasknDET);
+
+                    filesystem_setup();
+                }
+                break;
+            }
+        }
     }
 }
 
 void application_task_create(uint32_t priority)
 {
+    application_queue_handle = xQueueCreate(8, sizeof(uint32_t));
     xTaskCreate(application_task, "application", 512, 0, priority, &application_task_handle);
+}
+
+void application_task_send(application_message_t *message)
+{
+    if (application_queue_handle)
+    {
+        BaseType_t xHigherPriorityTaskWoken;
+
+        if (xPortIsInsideInterrupt() == pdTRUE)
+        {
+            xHigherPriorityTaskWoken = pdFALSE;
+            xQueueSendFromISR(application_queue_handle, message, &xHigherPriorityTaskWoken);
+            portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+        }
+        else
+        {
+            xQueueSend(application_queue_handle, message, portMAX_DELAY);
+        }
+    }
 }

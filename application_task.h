@@ -32,6 +32,17 @@
 #ifndef _APPLICATION_TASK_H_
 #define _APPLICATION_TASK_H_
 
+typedef enum {
+    APP_MSG_CARD_STATUS_CHANGED,
+} application_message_e;
+
+typedef struct {
+    application_message_e message;
+    size_t payload_size;
+    void  *payload;
+} application_message_t;
+
 extern void application_task_create(uint32_t priority);
+extern void application_task_send(application_message_t *message);
 
 #endif
