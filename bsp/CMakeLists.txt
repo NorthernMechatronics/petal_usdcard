@@ -19,6 +19,8 @@ add_custom_command(
         ${BSP_PINS_C}
     COMMAND
         python ${BSP_GENERATOR} ${BSP_PINS_SRC}
+    DEPENDS
+        ${BSP_PINS_SRC}
     WORKING_DIRECTORY
         ${BSP_PINS_DIR}
 )

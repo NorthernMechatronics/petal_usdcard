@@ -722,31 +722,30 @@ pin
 
 pin
     name            = SD_CS
-    desc            = I/O Master 0 chip select.
-    pinnum          = 8
-    func_sel        = AM_HAL_PIN_8_GPIO
+    desc            = I/O Master 2 chip select.
+    pinnum          = 11
+    func_sel        = AM_HAL_PIN_11_GPIO
     GPOutcfg        = pushpull
 
 pin
     name            = SD_MISO
-    desc            = I/O Master 0 SPI MISO signal.
-    pinnum          = 6
-    func_sel        = AM_HAL_PIN_6_M0MISO
-    IOMnum          = 0
+    desc            = I/O Master 2 SPI MISO signal.
+    pinnum          = 25 
+    func_sel        = AM_HAL_PIN_25_M2MISO
+    IOMnum          = 2
 
 pin
     name            = SD_MOSI
     desc            = I/O Master 0 SPI MOSI signal.
-    pinnum          = 7
-    func_sel        = AM_HAL_PIN_7_M0MOSI
+    pinnum          = 28
+    func_sel        = AM_HAL_PIN_28_M2MOSI
     drvstrength     = 12
-    IOMnum          = 0
+    IOMnum          = 2
 
 pin
     name            = SD_SCK
     desc            = I/O Master 0 SPI SCK signal.
-    pinnum          = 5
-    func_sel        = AM_HAL_PIN_5_M0SCK
+    pinnum          = 27
+    func_sel        = AM_HAL_PIN_27_M2SCK
     drvstrength     = 12
-    IOMnum          = 0
-
+    IOMnum          = 2
