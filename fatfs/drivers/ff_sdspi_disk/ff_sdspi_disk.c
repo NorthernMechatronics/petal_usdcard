@@ -170,9 +170,6 @@ void spi_init(void)
         .eSpiMode = AM_HAL_IOM_SPI_MODE_0,
     };
 
-    am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_EN, g_AM_HAL_GPIO_OUTPUT);
-    am_hal_gpio_state_write(AM_BSP_GPIO_SD_EN, AM_HAL_GPIO_OUTPUT_SET);
-
     am_hal_iom_initialize(SDSPI_IOM_MODULE, &sdspi_iom_handle);
     am_hal_iom_power_ctrl(sdspi_iom_handle, AM_HAL_SYSCTRL_WAKE, false);
     am_hal_iom_configure(sdspi_iom_handle, &iom_spi_config);
@@ -181,7 +178,6 @@ void spi_init(void)
     am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_MISO, g_AM_BSP_GPIO_SD_MISO);
     am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_MOSI, g_AM_BSP_GPIO_SD_MOSI);
     am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_SCK, g_AM_BSP_GPIO_SD_SCK);
-//    am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_CS, g_AM_BSP_GPIO_SD_CS);
 
     am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_CS, g_AM_HAL_GPIO_OUTPUT);
     am_hal_gpio_state_write(AM_BSP_GPIO_SD_CS, AM_HAL_GPIO_OUTPUT_SET);
