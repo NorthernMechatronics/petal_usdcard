@@ -94,7 +94,7 @@ static void filesystem_setup(void)
         }
         else if (fr == FR_NO_FILESYSTEM)
         {
-            MKFS_PARM g_formatOptions = {FM_EXFAT, 1, 0, 0, 0};
+            MKFS_PARM g_formatOptions = {FM_FAT, 1, 0, 0, 0};
 
             am_util_stdio_printf("\r\nNo filesystem, formatting...\r\n");
             taskENTER_CRITICAL();
