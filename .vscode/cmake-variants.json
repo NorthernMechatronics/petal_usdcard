@@ -1,6 +1,6 @@
 {
     "bsp": {
-        "default": "NM180100EVB",
+        "default": "NM180410",
         "description": "BSP Selection",
         "choices": {
             "NM180100EVB": {
