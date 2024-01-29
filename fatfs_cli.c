@@ -52,7 +52,7 @@ static portBASE_TYPE fatfs_cli_cat_entry(char *pui8OutBuffer,
                                         const char *pui8Command);
 static CLI_Command_Definition_t fatfs_cli_cat_definition = {
     (const char *const) "cat",
-    (const char *const) "cat     :  concatenate FILE to standard output.\r\n",
+    (const char *const) "cat    :  concatenate FILE to standard output.\r\n",
     fatfs_cli_cat_entry,
     -1
 };
@@ -67,6 +67,16 @@ static CLI_Command_Definition_t fatfs_cli_cd_definition = {
     -1
 };
 
+static portBASE_TYPE fatfs_cli_echo_entry(char *pui8OutBuffer,
+                                        size_t ui32OutBufferLength,
+                                        const char *pui8Command);
+static CLI_Command_Definition_t fatfs_cli_echo_definition = {
+    (const char *const) "echo",
+    (const char *const) "echo   :  echo strings.\r\n",
+    fatfs_cli_echo_entry,
+    -1
+};
+
 static portBASE_TYPE fatfs_cli_ls_entry(char *pui8OutBuffer,
                                         size_t ui32OutBufferLength,
                                         const char *pui8Command);
@@ -74,6 +84,26 @@ static CLI_Command_Definition_t fatfs_cli_ls_definition = {
     (const char *const) "ls",
     (const char *const) "ls     :  list files.\r\n",
     fatfs_cli_ls_entry,
+    -1
+};
+
+static portBASE_TYPE fatfs_cli_mkdir_entry(char *pui8OutBuffer,
+                                        size_t ui32OutBufferLength,
+                                        const char *pui8Command);
+static CLI_Command_Definition_t fatfs_cli_mkdir_definition = {
+    (const char *const) "mkdir",
+    (const char *const) "mkdir  :  create directory.\r\n",
+    fatfs_cli_mkdir_entry,
+    -1
+};
+
+static portBASE_TYPE fatfs_cli_rm_entry(char *pui8OutBuffer,
+                                        size_t ui32OutBufferLength,
+                                        const char *pui8Command);
+static CLI_Command_Definition_t fatfs_cli_rm_definition = {
+    (const char *const) "rm",
+    (const char *const) "rm     :  remove file or directory recursively.\r\n",
+    fatfs_cli_rm_entry,
     -1
 };
 
@@ -92,7 +122,10 @@ void fatfs_cli_register(void)
     argc = 0;
     FreeRTOS_CLIRegisterCommand(&fatfs_cli_cat_definition);
     FreeRTOS_CLIRegisterCommand(&fatfs_cli_cd_definition);
+    FreeRTOS_CLIRegisterCommand(&fatfs_cli_echo_definition);
     FreeRTOS_CLIRegisterCommand(&fatfs_cli_ls_definition);
+    FreeRTOS_CLIRegisterCommand(&fatfs_cli_mkdir_definition);
+    FreeRTOS_CLIRegisterCommand(&fatfs_cli_rm_definition);
     FreeRTOS_CLIRegisterCommand(&fatfs_cli_pwd_definition);
 }
 
@@ -173,6 +206,50 @@ static portBASE_TYPE fatfs_cli_cd_entry(char *pui8OutBuffer,
     return pdFALSE;
 }
 
+static portBASE_TYPE fatfs_cli_echo_entry(char *pui8OutBuffer,
+                                         size_t ui32OutBufferLength,
+                                         const char *pui8Command)
+{
+    FRESULT res;
+
+    pui8OutBuffer[0] = 0;
+    strcpy(argz, pui8Command);
+    FreeRTOS_CLIExtractParameters(argz, &argc, argv);
+
+    switch(argc)
+    {
+    case 2:
+        am_util_stdio_printf("%s\n", argv[1]);
+        break;
+
+    case 4:
+        if (strcmp(argv[2], ">") == 0)
+        {
+            FIL file;
+            FRESULT res = f_open(&file, argv[3], FA_OPEN_APPEND | FA_WRITE);
+            if (res == FR_OK)
+            {
+                f_puts(argv[1], &file);
+                f_close(&file);
+            }
+            else
+            {
+                am_util_stdio_printf("Error creating/opening file.\r\n");
+            }
+        }
+        else
+        {
+            am_util_stdio_printf("Unknown operator.\r\n");
+        }
+        break;
+
+    case 1:
+    default:
+        break;
+    }
+
+    return pdFALSE;
+}
 
 static portBASE_TYPE fatfs_cli_ls_entry(char *pui8OutBuffer,
                                         size_t ui32OutBufferLength,
@@ -232,6 +309,34 @@ static portBASE_TYPE fatfs_cli_ls_entry(char *pui8OutBuffer,
 
 error:
     am_util_stdio_printf("ls: cannot access '%s': No such file or directory\r\n", path);
+    return pdFALSE;
+}
+
+static portBASE_TYPE fatfs_cli_mkdir_entry(char *pui8OutBuffer,
+                                         size_t ui32OutBufferLength,
+                                         const char *pui8Command)
+{
+    FRESULT res;
+
+    pui8OutBuffer[0] = 0;
+    strcpy(argz, pui8Command);
+    FreeRTOS_CLIExtractParameters(argz, &argc, argv);
+    res = f_mkdir(argv[1]);
+
+    return pdFALSE;
+}
+
+static portBASE_TYPE fatfs_cli_rm_entry(char *pui8OutBuffer,
+                                         size_t ui32OutBufferLength,
+                                         const char *pui8Command)
+{
+    FRESULT res;
+
+    pui8OutBuffer[0] = 0;
+    strcpy(argz, pui8Command);
+    FreeRTOS_CLIExtractParameters(argz, &argc, argv);
+    res = f_rmdir(argv[1]);
+
     return pdFALSE;
 }
 

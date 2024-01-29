@@ -1,12 +1,6 @@
 cmake_policy(SET CMP0048 NEW)
 cmake_minimum_required(VERSION 3.13.0)
 
-# if (NOT "$ENV{APPLICATION}" STREQUAL "")
-#     set(APPLICATION $ENV{APPLICATION})
-# else()
-#     set(APPLICATION default_app_name)
-# endif()
-
 get_filename_component(APPLICATION ${CMAKE_CURRENT_SOURCE_DIR} NAME_WE)
 
 if (NOT "$ENV{APPLICATION_NAME}" STREQUAL "")
@@ -73,6 +67,7 @@ target_link_libraries(
         -lcmsis-nn
         -Wl,--end-group
         -Wl,--gc-sections
+        -Wl,--print-memory-usage
 )
 
 target_compile_definitions(
@@ -112,8 +107,6 @@ target_sources(
 add_custom_command(
     TARGET ${APPLICATION}
     POST_BUILD
-    # COMMAND echo "Creating list file"
-    # COMMAND ${CMAKE_OBJDUMP} -S $<TARGET_FILE_NAME:${APPLICATION}> > $<TARGET_FILE_BASE_NAME:${APPLICATION}>.lst
     COMMAND echo "Creating bin file"
     COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE_NAME:${APPLICATION}> $<TARGET_FILE_BASE_NAME:${APPLICATION}>.bin
 )

@@ -1,7 +1,7 @@
 /*
  * BSD 3-Clause License
  *
- * Copyright (c) 2022, Northern Mechatronics, Inc.
+ * Copyright (c) 2023, Northern Mechatronics, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,6 +35,7 @@
 #include <FreeRTOS.h>
 #include <queue.h>
 #include <task.h>
+#include <timers.h>
 
 #include "am_bsp.h"
 
@@ -45,17 +46,24 @@
 #include "application_task_cli.h"
 #include "fatfs_cli.h"
 
-const TCHAR g_drive[3U] = { DEV_SDSPI_DISK + '0', ':', '/'};
+const TCHAR g_drive[3U] = {DEV_SDSPI_DISK + '0', ':', '/'};
 FATFS g_fileSystem;
 uint8_t g_fsWork[FF_MAX_SS];
-char buffer[128];
 
 static TaskHandle_t application_task_handle;
 static QueueHandle_t application_queue_handle;
+static TimerHandle_t application_timer_handle;
+
+static void application_timer_callback(TimerHandle_t xTimer)
+{
+    application_message_t message = {.message = 0, .payload_size = 0, .payload = NULL};
+    message.message = APP_MSG_ALIVE_LED_TOGGLE;
+    application_task_send(&message);
+}
 
 static void sdcard_det_handler(void)
 {
-    application_message_t message = { .message = 0, .payload_size = 0, .payload = NULL };
+    application_message_t message = {.message = 0, .payload_size = 0, .payload = NULL};
 
     // disable interrupt to handle debounce in application context
     AM_HAL_GPIO_MASKCREATE(sMasknDET);
@@ -70,6 +78,7 @@ static void filesystem_setup(void)
 {
     uint32_t card_status;
 
+    // check if an SD card is inserted
     am_hal_gpio_state_read(AM_BSP_GPIO_SD_nDET, AM_HAL_GPIO_INPUT_READ, &card_status);
     if (card_status == 0)
     {
@@ -77,8 +86,7 @@ static void filesystem_setup(void)
         am_hal_gpio_state_write(AM_BSP_GPIO_SD_EN, AM_HAL_GPIO_OUTPUT_SET);
         vTaskDelay(pdMS_TO_TICKS(10));
 
-        FRESULT fr;
-        fr = f_mount(&g_fileSystem, g_drive, 0);
+        FRESULT fr = f_mount(&g_fileSystem, g_drive, 0);
         if ((fr == FR_INVALID_DRIVE) || (fr == FR_NOT_READY))
         {
             am_util_stdio_printf("\r\nDrive not found\r\n");
@@ -86,7 +94,7 @@ static void filesystem_setup(void)
         }
         else if (fr == FR_NO_FILESYSTEM)
         {
-            MKFS_PARM g_formatOptions = { FM_EXFAT, 1, 0, 0, 0 };
+            MKFS_PARM g_formatOptions = {FM_EXFAT, 1, 0, 0, 0};
 
             am_util_stdio_printf("\r\nNo filesystem, formatting...\r\n");
             taskENTER_CRITICAL();
@@ -113,14 +121,16 @@ static void filesystem_setup(void)
         am_util_stdio_printf("\r\nSD card removed\r\n");
 
         // umount the file system
-        f_mount(&g_fileSystem, g_drive, 0);
+        f_unmount(g_drive);
     }
 }
 
 static void application_setup()
 {
-    am_hal_gpio_pinconfig(30, g_AM_HAL_GPIO_OUTPUT);
-    am_hal_gpio_state_write(30, AM_HAL_GPIO_OUTPUT_SET);
+    // All the Petal development board IO pins can be turned on and off
+    // by GPIO 30.
+    am_hal_gpio_pinconfig(AM_BSP_GPIO_IO_EN, g_AM_HAL_GPIO_OUTPUT);
+    am_hal_gpio_state_write(AM_BSP_GPIO_IO_EN, AM_HAL_GPIO_OUTPUT_SET);
 
     am_hal_gpio_pinconfig(AM_BSP_GPIO_LED0, g_AM_HAL_GPIO_OUTPUT);
     am_hal_gpio_state_write(AM_BSP_GPIO_LED0, AM_HAL_GPIO_OUTPUT_CLEAR);
@@ -136,7 +146,13 @@ static void application_setup()
 
     am_hal_gpio_pinconfig(AM_BSP_GPIO_LED4, g_AM_HAL_GPIO_OUTPUT);
     am_hal_gpio_state_write(AM_BSP_GPIO_LED4, AM_HAL_GPIO_OUTPUT_CLEAR);
+}
 
+static void sdcard_setup(void)
+{
+    // SD card power control is performed inside filesystem_setup.
+    // Defer SD card power up until we have confirmation that an SD
+    // is inserted.
     am_hal_gpio_pinconfig(AM_BSP_GPIO_SD_EN, g_AM_HAL_GPIO_OUTPUT);
     am_hal_gpio_state_write(AM_BSP_GPIO_SD_EN, AM_HAL_GPIO_OUTPUT_CLEAR);
 
@@ -159,7 +175,10 @@ static void application_task(void *parameter)
     fatfs_cli_register();
 
     application_setup();
+    sdcard_setup();
     filesystem_setup();
+
+    xTimerStart(application_timer_handle, portMAX_DELAY);
     while (1)
     {
         if (xQueueReceive(application_queue_handle, &message, portMAX_DELAY) == pdTRUE)
@@ -167,16 +186,19 @@ static void application_task(void *parameter)
             switch (message.message)
             {
             case APP_MSG_CARD_STATUS_CHANGED:
-                {
-                    // debounce for 100ms
-                    vTaskDelay(pdMS_TO_TICKS(100));
-                    AM_HAL_GPIO_MASKCREATE(sMasknDET);
-                    AM_HAL_GPIO_MASKBIT(psMasknDET, AM_BSP_GPIO_SD_nDET);
-                    am_hal_gpio_interrupt_clear(psMasknDET);
-                    am_hal_gpio_interrupt_enable(psMasknDET);
+            {
+                // debounce for 100ms
+                vTaskDelay(pdMS_TO_TICKS(100));
+                AM_HAL_GPIO_MASKCREATE(sMasknDET);
+                AM_HAL_GPIO_MASKBIT(psMasknDET, AM_BSP_GPIO_SD_nDET);
+                am_hal_gpio_interrupt_clear(psMasknDET);
+                am_hal_gpio_interrupt_enable(psMasknDET);
 
-                    filesystem_setup();
-                }
+                filesystem_setup();
+            }
+            break;
+            case APP_MSG_ALIVE_LED_TOGGLE:
+                am_hal_gpio_state_write(AM_BSP_GPIO_LED0, AM_HAL_GPIO_OUTPUT_TOGGLE);
                 break;
             }
         }
@@ -186,6 +208,8 @@ static void application_task(void *parameter)
 void application_task_create(uint32_t priority)
 {
     application_queue_handle = xQueueCreate(8, sizeof(uint32_t));
+    application_timer_handle = xTimerCreate(
+        "Alive LED Timer", pdMS_TO_TICKS(1000), pdTRUE, NULL, application_timer_callback);
     xTaskCreate(application_task, "application", 512, 0, priority, &application_task_handle);
 }
 

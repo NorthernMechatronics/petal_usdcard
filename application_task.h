@@ -1,7 +1,7 @@
 /*
  * BSD 3-Clause License
  *
- * Copyright (c) 2022, Northern Mechatronics, Inc.
+ * Copyright (c) 2023, Northern Mechatronics, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,6 +34,7 @@
 
 typedef enum {
     APP_MSG_CARD_STATUS_CHANGED,
+    APP_MSG_ALIVE_LED_TOGGLE,
 } application_message_e;
 
 typedef struct {

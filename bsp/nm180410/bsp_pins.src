@@ -704,7 +704,17 @@ pin
     func_sel        = AM_HAL_PIN_21_SWDIO
 
 # *****************************************************************************
-#  SD Card pins.
+#  Petal Development Board IO enable pins.
+# *****************************************************************************
+pin
+    name            = IO_EN
+    desc            = IO Enable
+    pinnum          = 30
+    func_sel        = AM_HAL_PIN_30_GPIO
+    drvstrength     = 2
+
+# *****************************************************************************
+#  Petal Development Board SD Card pins.
 # *****************************************************************************
 pin
     name            = SD_nDET
